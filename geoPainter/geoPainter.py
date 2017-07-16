@@ -5,7 +5,7 @@
 
 import sys
 from PyQt5.QtCore import Qt, QPoint, QRect, QSize, QDir
-from PyQt5.QtGui import QImage, QPainter, QColor, qRgb, QRadialGradient, QPen, QBrush
+from PyQt5.QtGui import QImage, QPainter, QColor, qRgb, QRadialGradient, QPen, QBrush, QPixmap, QPalette
 from PyQt5.QtWidgets import (QAction, QWidget, QMainWindow, QGroupBox, QApplication, QVBoxLayout, 
                             QHBoxLayout, QGridLayout, QLabel, QLineEdit, QSpinBox, QLayout,
                             QTabWidget)
@@ -14,20 +14,30 @@ class DrawWidget(QWidget):
     def __init__(self, parent=None):
         super(DrawWidget, self).__init__(parent)
         self.setAttribute(Qt.WA_StaticContents)
+
+        
+        self.setAutoFillBackground(True)
+        self.palette = self.palette()
+        self.palette.setColor(self.backgroundRole(), Qt.white)
+        
+        self.setPalette(self.palette)
         
         self.hasChanged = False
         self.leftButtonDown = False
         self.penWidth = 25
         self.penWidthRad = self.penWidth / 2 + 2
-        self.penColor = QColor(0,0,0,50)
+        self.penColor = QColor(0, 0, 0, 50)
         
-        self.image = QImage()
-        #self.image.createAlphaMask()
-        self.image.setColor(1,QColor(0,0,0,50))
+        imageSize =  (700, 700)
+        
+        self.image = QImage(QSize(imageSize[0], imageSize[1]), 5)
+        print(self.image.hasAlphaChannel())
+        print(self.image.format())
         self.lastPoint = QPoint()
         
-        self.setFixedSize(700, 700)
-        self.setStyleSheet("background-color: red;")
+        self.setFixedSize(imageSize[0], imageSize[1])
+        
+        self.primaryImage = None
         
     def setPenColor(self, color):
         self.penColor = color         
@@ -82,10 +92,10 @@ class DrawWidget(QWidget):
         if event.button() == Qt.LeftButton:
             self.lastPoint = event.pos()
             self.leftButtonDown = True
-            
-            self.drawPointTo(event.pos())   # Since we can't draw a line with one point, also 
-                                            #  draw a point when we start clicking
             self.drawLineTo(event.pos())
+        elif event.button() == Qt.RightButton:
+            self.palette.setColor(self.backgroundRole(), Qt.red)
+            self.setPalette(self.palette)
             
     def mouseMoveEvent(self, event):
         if (event.buttons() & Qt.LeftButton) and self.leftButtonDown:
@@ -107,15 +117,14 @@ class DrawWidget(QWidget):
         self.update()
         super(DrawWidget, self).resizeEvent(event)
         
-    def drawPointTo(self, point):
-        painter = QPainter(self.image)
-        painter.setPen(self.buildPen(point.x(), point.y()))
-        painter.drawPoint(point)
-        
     def drawLineTo(self, currentPoint):
         painter = QPainter(self.image)
         painter.setPen(self.buildPen(currentPoint.x(), currentPoint.y()))
-        painter.drawLine(self.lastPoint, currentPoint)
+        
+        if self.lastPoint == currentPoint:
+            painter.drawPoint(currentPoint)
+        else:
+            painter.drawLine(self.lastPoint, currentPoint)
         self.hasChanged = True
         
         self.update(QRect(self.lastPoint, currentPoint).normalized().adjusted(-self.penWidthRad, -self.penWidthRad, +self.penWidthRad, +self.penWidthRad))
@@ -132,7 +141,7 @@ class DrawWidget(QWidget):
         painter.drawImage(QPoint(0, 0), image) # Ici pour choisir comme redimentionné ?
         
         self.image = newImage
-                
+         
                 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -142,9 +151,6 @@ class MainWindow(QMainWindow):
         self.drawingZoneUplift = DrawWidget()
         self.drawingZonePrecip = DrawWidget()
 
-        
-
-             
         # DEFINE GEOMETRY
         geometryGB = QGroupBox("DEFINE GEOMETRY")
         geometryGBLayout = QGridLayout()
@@ -172,22 +178,29 @@ class MainWindow(QMainWindow):
         
         # DRAWING
         drawingTab = QTabWidget()
+        drawingTab.currentChanged.connect(self.truc)
         drawingTab.addTab(self.drawingZoneTopol,"TOPOLOGY")
         drawingTab.addTab(self.drawingZoneUplift,"UPLIFT")
         drawingTab.addTab(self.drawingZonePrecip,"PRECIPITATION")
         # /DRAWING
 
-        mainVBoxLayout = QVBoxLayout(self)
+        mainVBoxLayout = QVBoxLayout()
         mainVBoxLayout.addWidget(geometryGB)
         mainVBoxLayout.addWidget(drawingTab)
 
-        
         mainWidget = QWidget(self)
         mainWidget.setLayout(mainVBoxLayout)
         self.setCentralWidget(mainWidget)
 
         self.setWindowTitle('geoPainter')
         
+    def truc(self, event):
+        if event == 1:
+            self.drawingZoneUplift.palette.setBrush(QPalette.Background, QBrush(QPixmap(self.drawingZoneTopol.image)))
+            self.drawingZoneUplift.setPalette(self.drawingZoneUplift.palette)
+        elif event == 2:
+            self.drawingZonePrecip.palette.setBrush(QPalette.Background, QBrush(QPixmap(self.drawingZoneTopol.image)))
+            self.drawingZonePrecip.setPalette(self.drawingZonePrecip.palette)
         
 if __name__ == '__main__':
     app = QApplication(sys.argv)
