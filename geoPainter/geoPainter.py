@@ -22,9 +22,12 @@ class DrawWidget(QWidget):
         self.penColor = QColor(0,0,0,50)
         
         self.image = QImage()
+        #self.image.createAlphaMask()
+        self.image.setColor(1,QColor(0,0,0,50))
         self.lastPoint = QPoint()
         
         self.setFixedSize(700, 700)
+        self.setStyleSheet("background-color: red;")
         
     def setPenColor(self, color):
         self.penColor = color         
@@ -94,7 +97,6 @@ class DrawWidget(QWidget):
             self.leftButtonDown = False
             
     def paintEvent(self, event):
-        print('PaintEvent')
         painter = QPainter(self)
         dirtyRect = event.rect()
         painter.drawImage(dirtyRect, self.image, dirtyRect)
@@ -137,7 +139,6 @@ class MainWindow(QMainWindow):
         super(MainWindow, self).__init__()
         
         self.drawingZoneTopol = DrawWidget()
-        self.drawingZoneTopol.resize(500,500)
         self.drawingZoneUplift = DrawWidget()
         self.drawingZonePrecip = DrawWidget()
 
