@@ -8,7 +8,7 @@ from PyQt5.QtCore import Qt, QPoint, QRect, QSize, QDir
 from PyQt5.QtGui import QImage, QPainter, QColor, qRgb, QRadialGradient, QPen, QBrush, QPixmap, QPalette
 from PyQt5.QtWidgets import (QAction, QWidget, QMainWindow, QGroupBox, QApplication, QVBoxLayout, 
                             QHBoxLayout, QGridLayout, QLabel, QLineEdit, QSpinBox, QLayout,
-                            QTabWidget)
+                            QTabWidget, QPushButton, QScrollArea)
 
 class DrawWidget(QWidget):
     def __init__(self, parent=None):
@@ -19,7 +19,6 @@ class DrawWidget(QWidget):
         self.setAutoFillBackground(True)
         self.palette = self.palette()
         self.palette.setColor(self.backgroundRole(), Qt.white)
-        
         self.setPalette(self.palette)
         
         self.hasChanged = False
@@ -28,11 +27,9 @@ class DrawWidget(QWidget):
         self.penWidthRad = self.penWidth / 2 + 2
         self.penColor = QColor(0, 0, 0, 50)
         
-        imageSize =  (700, 700)
+        imageSize =  (500, 500)
         
         self.image = QImage(QSize(imageSize[0], imageSize[1]), 5)
-        print(self.image.hasAlphaChannel())
-        print(self.image.format())
         self.lastPoint = QPoint()
         
         self.setFixedSize(imageSize[0], imageSize[1])
@@ -72,7 +69,7 @@ class DrawWidget(QWidget):
     def buildPen(self,x, y):
         gradient = QRadialGradient(x, y, self.penWidth)
         gradient.setColorAt(0, self.penColor);
-        gradient.setColorAt(0.5, QColor.fromRgbF(0, 0, 0, 0));
+        gradient.setColorAt(0.5, QColor.fromRgbF(1, 1, 1, 0));
         return QPen(QBrush(gradient), self.penWidth, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
        
     def saveImage(self, FileName):
@@ -147,54 +144,169 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super(MainWindow, self).__init__()
         
+        self.setWindowTitle('geoPainter')
+        
         self.drawingZoneTopol = DrawWidget()
+        self.drawingZoneTopolSCA = QScrollArea()
+        self.drawingZoneTopolSCA.setWidget(self.drawingZoneTopol)
+        
         self.drawingZoneUplift = DrawWidget()
+        self.drawingZoneUpliftSCA = QScrollArea()
+        self.drawingZoneUpliftSCA.setWidget(self.drawingZoneUplift)
+        
         self.drawingZonePrecip = DrawWidget()
-
-        # DEFINE GEOMETRY
-        geometryGB = QGroupBox("DEFINE GEOMETRY")
-        geometryGBLayout = QGridLayout()
-        geometryGBLayout.addWidget(QLabel('Name'),0,0)
-        geometryGBLayout.addWidget(QLineEdit(),1,0)
-        geometryGBLayout.addWidget(QLabel('res X'),0,1)
-        geometryGBLayout.addWidget(QSpinBox(),1,1)
-        geometryGBLayout.addWidget(QLabel('res Y'),0,2)
-        geometryGBLayout.addWidget(QSpinBox(),1,2)
-        geometryGBLayout.addWidget(QLabel('min X'),0,3)
-        geometryGBLayout.addWidget(QSpinBox(),1,3)
-        geometryGBLayout.addWidget(QLabel('max X'),0,4)
-        geometryGBLayout.addWidget(QSpinBox(),1,4)
-        geometryGBLayout.addWidget(QLabel('min Y'),0,5)
-        geometryGBLayout.addWidget(QSpinBox(),1,5)
-        geometryGBLayout.addWidget(QLabel('max Y'),0,6)
-        geometryGBLayout.addWidget(QSpinBox(),1,6)
-        geometryGBLayout.addWidget(QLabel('min Z'),0,7)
-        geometryGBLayout.addWidget(QSpinBox(),1,7)
-        geometryGBLayout.addWidget(QLabel('max Z'),0,8)
-        geometryGBLayout.addWidget(QSpinBox(),1,8)
-        geometryGBLayout.setSizeConstraint(QLayout.SetFixedSize) # Don' take space for no reason
-        geometryGB.setLayout(geometryGBLayout)
-        # /DEFINE GEOMETRY
+        self.drawingZonePrecipSCA = QScrollArea()
+        self.drawingZonePrecipSCA.setWidget(self.drawingZonePrecip)
         
         # DRAWING
-        drawingTab = QTabWidget()
-        drawingTab.currentChanged.connect(self.truc)
-        drawingTab.addTab(self.drawingZoneTopol,"TOPOLOGY")
-        drawingTab.addTab(self.drawingZoneUplift,"UPLIFT")
-        drawingTab.addTab(self.drawingZonePrecip,"PRECIPITATION")
+        self.drawingTab = QTabWidget()
+        self.drawingTab.currentChanged.connect(self.updateBackground)
+        self.drawingTab.addTab(self.drawingZoneTopolSCA, "TOPOLOGY")
+        self.drawingTab.addTab(self.drawingZoneUplift, "UPLIFT")
+        self.drawingTab.addTab(self.drawingZonePrecip, "PRECIPITATION")
+        
+        self.drawingTab.palette = self.drawingTab.palette()
+        self.drawingTab.palette.setColor(self.backgroundRole(), Qt.gray)
+        self.drawingTab.setPalette(self.drawingTab.palette)
         # /DRAWING
-
+        
+        
+        
+        self.createBrushButton()
+        self.createGeometryEditing()
+        
+        
         mainVBoxLayout = QVBoxLayout()
-        mainVBoxLayout.addWidget(geometryGB)
-        mainVBoxLayout.addWidget(drawingTab)
+        mainVBoxLayout.addWidget(self.geometryGB)
+        mainVBoxLayout.addWidget(self.brushAndDrawing)
 
         mainWidget = QWidget(self)
         mainWidget.setLayout(mainVBoxLayout)
         self.setCentralWidget(mainWidget)
+      
 
-        self.setWindowTitle('geoPainter')
+    def createGeometryEditing(self):
         
-    def truc(self, event):
+        geometryGBLayout = QGridLayout()
+        geometryGBLayout.setSizeConstraint(QLayout.SetFixedSize)
+        
+        geometryGBLayout.addWidget(QLabel('Name'),0,0)
+        self.buttonName = QLineEdit()
+        self.buttonName.setMaxLength(60)
+        geometryGBLayout.addWidget(self.buttonName,1,0)
+        
+        geometryGBLayout.addWidget(QLabel('Res X'),0,1)
+        self.inputResX = QSpinBox()
+        self.inputResX.setMaximum(255)
+        geometryGBLayout.addWidget(self.inputResX,1,1)
+        
+        geometryGBLayout.addWidget(QLabel('Res Y'),0,2)
+        self.inputResY = QSpinBox()
+        self.inputResY.setMaximum(255)
+        geometryGBLayout.addWidget(self.inputResY,1,2)
+        
+        geometryGBLayout.addWidget(QLabel('Min  X'),0,3)
+        self.inputMinX = QSpinBox()
+        self.inputMinX.setMaximum(255)
+        geometryGBLayout.addWidget(self.inputMinX,1,3)
+        
+        geometryGBLayout.addWidget(QLabel('Max X'),0,4)
+        self.inputMaxX = QSpinBox()
+        self.inputMaxX.setMaximum(255)
+        geometryGBLayout.addWidget(self.inputMaxX,1,4)
+        
+        geometryGBLayout.addWidget(QLabel('Min  Y'),0,5)
+        self.inputMinY = QSpinBox()
+        self.inputMinY.setMaximum(255)
+        geometryGBLayout.addWidget(self.inputMinY,1,5)
+        
+        geometryGBLayout.addWidget(QLabel('Max Y'),0,6)
+        self.inputMaxY = QSpinBox()
+        self.inputMaxY.setMaximum(255)
+        geometryGBLayout.addWidget(self.inputMaxY,1,6)
+
+        geometryGBLayout.addWidget(QLabel('Min  Z'),0,7)
+        self.inputMinZ = QSpinBox()
+        self.inputMinZ.setMaximum(255)
+        geometryGBLayout.addWidget(self.inputMinZ,1,7)
+        
+        geometryGBLayout.addWidget(QLabel('Max Z'),0,8)
+        self.inputMaxZ = QSpinBox()
+        self.inputMaxZ.setMaximum(255)
+        geometryGBLayout.addWidget(self.inputMaxZ,1,8)
+        
+        self.buttonSetGeo = QPushButton('Validate')
+        self.buttonSetGeo.clicked.connect(self.doPrint)
+        geometryGBLayout.addWidget(self.buttonSetGeo, 1, 9)
+        
+        
+        self.geometryGB = QGroupBox("DEFINE GEOMETRY")
+        self.geometryGB.setLayout(geometryGBLayout)
+
+      
+    def createBrushButton(self):
+        brushLayout = QVBoxLayout()
+        brushLayout.setSizeConstraint(QLayout.SetFixedSize)
+
+        self.buttonSelBrushOne = QPushButton('Brush01')
+        self.buttonSelBrushOne.clicked.connect(lambda: self.setBrush(1))
+        brushLayout.addWidget(self.buttonSelBrushOne)
+
+        self.buttonSelBrushTwo = QPushButton('Brush02')
+        self.buttonSelBrushTwo.clicked.connect(lambda: self.setBrush(2))
+        brushLayout.addWidget(self.buttonSelBrushTwo)
+
+        self.buttonSelBrushThree = QPushButton('Brush03')
+        self.buttonSelBrushThree.clicked.connect(lambda: self.setBrush(3))
+        brushLayout.addWidget(self.buttonSelBrushThree)
+
+        self.buttonSelBrushFour = QPushButton('Brush04')
+        self.buttonSelBrushFour.clicked.connect(lambda: self.setBrush(4))
+        brushLayout.addWidget(self.buttonSelBrushFour)
+
+        self.buttonSelBrushFive = QPushButton('Brush05')
+        self.buttonSelBrushFive.clicked.connect(lambda: self.setBrush(5))
+        brushLayout.addWidget(self.buttonSelBrushFive)
+
+        self.buttonSelBrushSix = QPushButton('Brush06')
+        self.buttonSelBrushSix.clicked.connect(lambda: self.setBrush(6))
+        brushLayout.addWidget(self.buttonSelBrushSix)
+
+        self.buttonSelBrushSeven = QPushButton('Brush07')
+        self.buttonSelBrushSeven.clicked.connect(lambda: self.setBrush(7))
+        brushLayout.addWidget(self.buttonSelBrushSeven)
+
+        self.buttonSelBrushEight = QPushButton('Brush08')
+        self.buttonSelBrushEight.clicked.connect(lambda: self.setBrush(8))
+        brushLayout.addWidget(self.buttonSelBrushEight)
+
+        self.buttonSelBrushNine = QPushButton('Brush09')
+        self.buttonSelBrushNine.clicked.connect(lambda: self.setBrush(9))
+        brushLayout.addWidget(self.buttonSelBrushNine)
+
+        self.buttonSelBrushTen = QPushButton('Brush10')
+        self.buttonSelBrushTen.clicked.connect(lambda: self.setBrush(10))
+        brushLayout.addWidget(self.buttonSelBrushTen)
+        
+        self.brushGB = QGroupBox("BRUSH")
+        self.brushGB.setLayout(brushLayout)
+        
+        
+        brushAndDrawingLayout = QHBoxLayout()
+        brushAndDrawingLayout.addWidget(self.brushGB)
+        brushAndDrawingLayout.setAlignment(self.brushGB, Qt.AlignTop)
+        brushAndDrawingLayout.addWidget(self.drawingTab)
+        self.brushAndDrawing = QWidget()
+        self.brushAndDrawing.setLayout(brushAndDrawingLayout)
+        # /DEFINE BRUSH
+
+    def doPrint(self):
+        print('clic')
+        
+    def setBrush(self, brush):
+        print("Brush selected : " + str(brush))
+        
+    def updateBackground(self, event):
         if event == 1:
             self.drawingZoneUplift.palette.setBrush(QPalette.Background, QBrush(QPixmap(self.drawingZoneTopol.image)))
             self.drawingZoneUplift.setPalette(self.drawingZoneUplift.palette)
