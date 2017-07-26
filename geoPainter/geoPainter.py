@@ -8,7 +8,7 @@ from PyQt5.QtCore import Qt, QPoint, QRect, QSize, QDir
 from PyQt5.QtGui import QImage, QPainter, QColor, qRgb, QRadialGradient, QPen, QBrush, QPixmap, QPalette
 from PyQt5.QtWidgets import (QAction, QWidget, QMainWindow, QGroupBox, QApplication, QVBoxLayout, 
                             QHBoxLayout, QGridLayout, QLabel, QLineEdit, QSpinBox, QLayout,
-                            QTabWidget, QPushButton, QScrollArea)
+                            QTabWidget, QPushButton, QScrollArea, QMenu)
 
 class DrawWidget(QWidget):
     def __init__(self, parent=None):
@@ -49,7 +49,7 @@ class DrawWidget(QWidget):
     def getPenWidth(self, width):
         return self.penWidth 
         
-    def getlefButtonStatus(self):
+    def getLefButtonStatus(self):
         return self.leftButtonDown
     
     def loadImage(self, FileName):
@@ -145,6 +145,7 @@ class MainWindow(QMainWindow):
         super(MainWindow, self).__init__()
         
         self.setWindowTitle('geoPainter')
+        self.createMenuBar()
         
         self.drawingZoneTopol = DrawWidget()
         self.drawingZoneTopolSCA = QScrollArea()
@@ -185,6 +186,23 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(mainWidget)
       
 
+    def createMenuBar(self):
+    
+        actionOpen = QAction("&Open ...", self, shortcut="Ctrl+O", triggered=self.openFile)
+    
+        menuFile = QMenu("File", self)
+        menuFile.addAction(actionOpen)
+        self.menuBar().addMenu(menuFile)
+        
+    def openFile(self):
+        pass
+        
+    def getHasChanged(self):
+        """
+            Check if all drawZone has been modified, work whith loop and tuple instead of ref to each deawZone ?
+        """
+        pass
+      
     def createGeometryEditing(self):
         
         geometryGBLayout = QGridLayout()
