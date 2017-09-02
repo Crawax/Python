@@ -4,337 +4,356 @@
 # With the help of the Scribble.py exemple from PyQt5
 
 import sys
-from PyQt5.QtCore import Qt, QPoint, QRect, QSize, QDir
-from PyQt5.QtGui import QImage, QPainter, QColor, qRgb, QRadialGradient, QPen, QBrush, QPixmap, QPalette
-from PyQt5.QtWidgets import (QAction, QWidget, QMainWindow, QGroupBox, QApplication, QVBoxLayout, 
-                            QHBoxLayout, QGridLayout, QLabel, QLineEdit, QSpinBox, QLayout,
-                            QTabWidget, QPushButton, QScrollArea, QMenu)
+from PyQt5.QtCore import *
+from PyQt5.QtGui import *
+from PyQt5.QtWidgets import *
 
-class DrawWidget(QWidget):
+class drawWidget(QWidget):
     def __init__(self, parent=None):
-        super(DrawWidget, self).__init__(parent)
+        super(drawWidget, self).__init__(parent)
         self.setAttribute(Qt.WA_StaticContents)
-
         
-        self.setAutoFillBackground(True)
-        self.palette = self.palette()
-        self.palette.setColor(self.backgroundRole(), Qt.white)
-        self.setPalette(self.palette)
+        self.setLayout(QVBoxLayout())
         
-        self.hasChanged = False
-        self.leftButtonDown = False
+        self.changedSinceLastSave = False
+        self.LeftMouseButtonDown = False
+        self.lastPoint = QPoint()
+        self.currentPoint = QPoint()
+        self.drawing = QImage()
+        
         self.penWidth = 25
         self.penWidthRad = self.penWidth / 2 + 2
-        self.penColor = QColor(0, 0, 0, 50)
-        
-        imageSize =  (500, 500)
-        
-        self.image = QImage(QSize(imageSize[0], imageSize[1]), 5)
-        self.lastPoint = QPoint()
-        
-        self.setFixedSize(imageSize[0], imageSize[1])
-        
-        self.primaryImage = None
-        
-    def setPenColor(self, color):
-        self.penColor = color         
-        
-    def getPenColor(self):
-        return self.penColor        
-        
-    def setPenWidth(self, width):
-        self.penWidth = width
-        self.penWidthRad = self.penWidth / 2 + 2
-        
-    def getPenWidth(self, width):
-        return self.penWidth 
-        
-    def getLefButtonStatus(self):
-        return self.leftButtonDown
-    
-    def loadImage(self, FileName):
-        loadedImage = QImage()
-        if not not loadedImage.load(fileName):
-            print('Error while opening the image')
-            return False
-        
-        self.resizeImage(loadedImage, loadedImage.size().expandedTo(self.size()))
-        self.image = loadedImage
-        
-        self.hasChanged = False
-        self.update()
-        
-        return True
-       
-    def buildPen(self,x, y):
-        gradient = QRadialGradient(x, y, self.penWidth)
-        gradient.setColorAt(0, self.penColor);
-        gradient.setColorAt(0.5, QColor.fromRgbF(1, 1, 1, 0));
-        return QPen(QBrush(gradient), self.penWidth, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
-       
-    def saveImage(self, FileName):
-        if self.image.save(fileName, 'png'):
-            self.hasChanged = False
-            return True
-        else:
-            print('Error when saving the image')
-            return False
+        self.penColor = QColor(0, 0, 0, 30)
 
-    def resetImage(self):
-        self.image.fill(qRgb(255, 255, 255))
-        self.hasChanged = True
+    
+    # Qt Buildin Event
+    def resizeEvent(self, event):
+        self.resizeDrawing(event.size())
         self.update()
+        
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.drawImage(event.rect(), self.drawing, event.rect())
         
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
-            self.lastPoint = event.pos()
-            self.leftButtonDown = True
-            self.drawLineTo(event.pos())
-        elif event.button() == Qt.RightButton:
-            self.palette.setColor(self.backgroundRole(), Qt.red)
-            self.setPalette(self.palette)
-            
+            self.LeftMouseButtonDown = True
+            self.lastPoint = self.currentPoint
+            self.currentPoint = event.pos()
+            self.drawLine()
+    
     def mouseMoveEvent(self, event):
-        if (event.buttons() & Qt.LeftButton) and self.leftButtonDown:
-            self.drawLineTo(event.pos())
-            
+        if (event.buttons() & Qt.LeftButton) and self.LeftMouseButtonDown:
+            self.lastPoint = self.currentPoint
+            self.currentPoint = event.pos()
+            self.drawLine()
+    
     def mouseReleaseEvent(self, event):
-        if (event.buttons() & Qt.LeftButton) and self.leftButtonDown:
-            self.drawLineTo(event.pos())
-            self.leftButtonDown = False
+        if event.button() == Qt.LeftButton:
+            self.LeftMouseButtonDown = False
+    # /Qt Event
+    
+    
+    def buildPen(self, point):
+        gradient = QRadialGradient(point.x(), point.y(), self.penWidth)
+        gradient.setColorAt(0, self.penColor);
+        gradient.setColorAt(0.5, QColor.fromRgbF(1, 1, 1, 0));
+        return QPen(QBrush(gradient),
+                    self.penWidth,
+                    Qt.SolidLine,
+                    Qt.RoundCap,
+                    Qt.RoundJoin
+                    )
+    
+    def drawLine(self):
+        painter = QPainter(self.drawing)
+        painter.setPen(self.buildPen(self.currentPoint))
+        
+        
+        painter.drawLine(self.lastPoint, self.currentPoint)
+        self.changedSinceLastSave = True
+        
+        radius = self.penWidth / 2 + 2
+        self.update(QRect(self.lastPoint, self.currentPoint)
+            .normalized().adjusted(-radius, -radius, +radius, +radius))
+    
+    def resizeDrawing(self, size):
+        print('resizeDrawing')
+        print('New size : ', size.width(),size.height())
+        if not size == self.drawing.size():
+            newDrawing = QImage(size, QImage.Format_RGB32)
+            newDrawing.fill(qRgb(255,255,255))
             
-    def paintEvent(self, event):
-        painter = QPainter(self)
-        dirtyRect = event.rect()
-        painter.drawImage(dirtyRect, self.image, dirtyRect)
-        
-    def resizeEvent(self, event):
-        print('resizeEvent')
-        self.resizeImage(self.image, QSize(self.width(), self.height()))
-        self.update()
-        super(DrawWidget, self).resizeEvent(event)
-        
-    def drawLineTo(self, currentPoint):
-        painter = QPainter(self.image)
-        painter.setPen(self.buildPen(currentPoint.x(), currentPoint.y()))
-        
-        if self.lastPoint == currentPoint:
-            painter.drawPoint(currentPoint)
+            painter = QPainter(newDrawing)
+            
+            painter.drawImage(QPoint(
+                size.width() / 2 - self.drawing.width() / 2,
+                size.height() / 2 - self.drawing.height() / 2
+            ), self.drawing)
+            
+            self.drawing = newDrawing
+            self.setFixedSize(self.drawing.size())
         else:
-            painter.drawLine(self.lastPoint, currentPoint)
-        self.hasChanged = True
-        
-        self.update(QRect(self.lastPoint, currentPoint).normalized().adjusted(-self.penWidthRad, -self.penWidthRad, +self.penWidthRad, +self.penWidthRad))
-        self.lastPoint = QPoint(currentPoint)
-        
-    def resizeImage(self, image, newSize):
-        if image.size() == newSize:
-            return
+            print('resizeDrawing : nothing to do')
             
-        newImage = QImage(newSize, QImage.Format_RGB32)
-        newImage.fill(qRgb(255, 255, 255))
-        
-        painter = QPainter(newImage)
-        painter.drawImage(QPoint(0, 0), image) # Ici pour choisir comme redimentionné ?
-        
-        self.image = newImage
-         
-                
-class MainWindow(QMainWindow):
+    def changed(self):
+        if self.changedSinceLastSave:
+            return True
+            
+            
+    def save(self, fileName, extention):
+        if self.drawing.save(fileName, extention):
+            self.changedSinceLastSave = False
+            return True
+            
+        return False
+    
+class sizeWindow(QWidget):
     def __init__(self):
-        super(MainWindow, self).__init__()
+        QWidget.__init__(self)
+        self.setAttribute(Qt.WA_StaticContents)
+        self.setWindowFlags(Qt.SubWindow)
+        self.parentWindowRef = None # Allow self to be owned by PyQt instead of Qt
         
-        self.setWindowTitle('geoPainter')
-        self.createMenuBar()
+        self.parentWindow = None # Used to send back values
         
-        self.drawingZoneTopol = DrawWidget()
-        self.drawingZoneTopolSCA = QScrollArea()
-        self.drawingZoneTopolSCA.setWidget(self.drawingZoneTopol)
-        
-        self.drawingZoneUplift = DrawWidget()
-        self.drawingZoneUpliftSCA = QScrollArea()
-        self.drawingZoneUpliftSCA.setWidget(self.drawingZoneUplift)
-        
-        self.drawingZonePrecip = DrawWidget()
-        self.drawingZonePrecipSCA = QScrollArea()
-        self.drawingZonePrecipSCA.setWidget(self.drawingZonePrecip)
-        
-        # DRAWING
-        self.drawingTab = QTabWidget()
-        self.drawingTab.currentChanged.connect(self.updateBackground)
-        self.drawingTab.addTab(self.drawingZoneTopolSCA, "TOPOLOGY")
-        self.drawingTab.addTab(self.drawingZoneUplift, "UPLIFT")
-        self.drawingTab.addTab(self.drawingZonePrecip, "PRECIPITATION")
-        
-        self.drawingTab.palette = self.drawingTab.palette()
-        self.drawingTab.palette.setColor(self.backgroundRole(), Qt.gray)
-        self.drawingTab.setPalette(self.drawingTab.palette)
-        # /DRAWING
+        inputLayout = QGridLayout()
         
         
+        self.inputSizeX = QSpinBox()
+        self.inputSizeX.setRange(200,5000)
+        inputLayout.addWidget(QLabel('Size X : '),0,0) 
+        inputLayout.addWidget(self.inputSizeX,    0,1)
         
-        self.createBrushButton()
-        self.createGeometryEditing()
+        self.inputSizeY = QSpinBox()
+        self.inputSizeY.setRange(200,5000)
+        inputLayout.addWidget(QLabel(' Size Y : '),0,2)
+        inputLayout.addWidget(self.inputSizeY,     0,3)
+        
+        buttonValidate = QPushButton('Confirm')
+        buttonValidate.clicked.connect(self.sendSize)
+        
+        buttonCancel = QPushButton('Cancel')
+        buttonCancel.clicked.connect(self.hide)
+        
+        mainLayout = QVBoxLayout()
+        mainLayout.addItem(inputLayout)
+        mainLayout.addWidget(buttonValidate)
+        mainLayout.addWidget(buttonCancel)
+        self.setLayout(mainLayout)
+        
+    def sendSize(self):
+        self.parentWindow.setSize(QSize(
+            self.inputSizeX.value(),
+            self.inputSizeY.value()
+            ))
+        self.hide()
+        
+class resolutionWindow(QWidget):
+    def __init__(self):
+        QWidget.__init__(self)
+        self.setAttribute(Qt.WA_StaticContents)
+        self.setWindowFlags(Qt.SubWindow)
+        self.parentWindowRef = None # Allow self to be owned by PyQt instead of Qt
+        
+        self.parentWindow = None # Used to send back values
         
         
-        mainVBoxLayout = QVBoxLayout()
-        mainVBoxLayout.addWidget(self.geometryGB)
-        mainVBoxLayout.addWidget(self.brushAndDrawing)
-
-        mainWidget = QWidget(self)
-        mainWidget.setLayout(mainVBoxLayout)
-        self.setCentralWidget(mainWidget)
-      
-
-    def createMenuBar(self):
-    
-        actionOpen = QAction("&Open ...", self, shortcut="Ctrl+O", triggered=self.openFile)
-    
-        menuFile = QMenu("File", self)
-        menuFile.addAction(actionOpen)
-        self.menuBar().addMenu(menuFile)
+        inputLayout = QGridLayout()
         
-    def openFile(self):
-        pass
-        
-    def getHasChanged(self):
-        """
-            Check if all drawZone has been modified, work whith loop and tuple instead of ref to each deawZone ?
-        """
-        pass
-      
-    def createGeometryEditing(self):
-        
-        geometryGBLayout = QGridLayout()
-        geometryGBLayout.setSizeConstraint(QLayout.SetFixedSize)
-        
-        geometryGBLayout.addWidget(QLabel('Name'),0,0)
-        self.buttonName = QLineEdit()
-        self.buttonName.setMaxLength(60)
-        geometryGBLayout.addWidget(self.buttonName,1,0)
-        
-        geometryGBLayout.addWidget(QLabel('Res X'),0,1)
-        self.inputResX = QSpinBox()
-        self.inputResX.setMaximum(255)
-        geometryGBLayout.addWidget(self.inputResX,1,1)
-        
-        geometryGBLayout.addWidget(QLabel('Res Y'),0,2)
-        self.inputResY = QSpinBox()
-        self.inputResY.setMaximum(255)
-        geometryGBLayout.addWidget(self.inputResY,1,2)
-        
-        geometryGBLayout.addWidget(QLabel('Min  X'),0,3)
         self.inputMinX = QSpinBox()
-        self.inputMinX.setMaximum(255)
-        geometryGBLayout.addWidget(self.inputMinX,1,3)
+        self.inputMinX.setRange(0,255)
+        inputLayout.addWidget(QLabel('Min X : '),0,0)
+        inputLayout.addWidget(self.inputMinX,    0,1)
         
-        geometryGBLayout.addWidget(QLabel('Max X'),0,4)
         self.inputMaxX = QSpinBox()
-        self.inputMaxX.setMaximum(255)
-        geometryGBLayout.addWidget(self.inputMaxX,1,4)
+        self.inputMaxX.setRange(0,255)
+        inputLayout.addWidget(QLabel(' Max X : '),0,2)
+        inputLayout.addWidget(self.inputMaxX,     0,3)
         
-        geometryGBLayout.addWidget(QLabel('Min  Y'),0,5)
         self.inputMinY = QSpinBox()
-        self.inputMinY.setMaximum(255)
-        geometryGBLayout.addWidget(self.inputMinY,1,5)
+        self.inputMinY.setRange(0,255)
+        inputLayout.addWidget(QLabel('Min Y : '),1,0)
+        inputLayout.addWidget(self.inputMinY,    1,1)
         
-        geometryGBLayout.addWidget(QLabel('Max Y'),0,6)
         self.inputMaxY = QSpinBox()
-        self.inputMaxY.setMaximum(255)
-        geometryGBLayout.addWidget(self.inputMaxY,1,6)
-
-        geometryGBLayout.addWidget(QLabel('Min  Z'),0,7)
+        self.inputMaxY.setRange(0,255)
+        inputLayout.addWidget(QLabel(' Max Y : '),1,2)
+        inputLayout.addWidget(self.inputMaxY,     1,3)
+        
         self.inputMinZ = QSpinBox()
-        self.inputMinZ.setMaximum(255)
-        geometryGBLayout.addWidget(self.inputMinZ,1,7)
+        self.inputMinZ.setRange(0,255)
+        inputLayout.addWidget(QLabel('Min Z : '),2,0)
+        inputLayout.addWidget(self.inputMinZ,    2,1)
         
-        geometryGBLayout.addWidget(QLabel('Max Z'),0,8)
         self.inputMaxZ = QSpinBox()
-        self.inputMaxZ.setMaximum(255)
-        geometryGBLayout.addWidget(self.inputMaxZ,1,8)
+        self.inputMaxZ.setRange(0,255)
+        inputLayout.addWidget(QLabel(' Max Z : '),2,2)
+        inputLayout.addWidget(self.inputMaxZ,     2,3)
         
-        self.buttonSetGeo = QPushButton('Validate')
-        self.buttonSetGeo.clicked.connect(self.doPrint)
-        geometryGBLayout.addWidget(self.buttonSetGeo, 1, 9)
+        buttonValidate = QPushButton('Confirm')
+        buttonValidate.clicked.connect(self.sendResolution)
         
+        buttonCancel = QPushButton('Cancel')
+        buttonCancel.clicked.connect(self.hide)
         
-        self.geometryGB = QGroupBox("DEFINE GEOMETRY")
-        self.geometryGB.setLayout(geometryGBLayout)
-
-      
-    def createBrushButton(self):
-        brushLayout = QVBoxLayout()
-        brushLayout.setSizeConstraint(QLayout.SetFixedSize)
-
-        self.buttonSelBrushOne = QPushButton('Brush01')
-        self.buttonSelBrushOne.clicked.connect(lambda: self.setBrush(1))
-        brushLayout.addWidget(self.buttonSelBrushOne)
-
-        self.buttonSelBrushTwo = QPushButton('Brush02')
-        self.buttonSelBrushTwo.clicked.connect(lambda: self.setBrush(2))
-        brushLayout.addWidget(self.buttonSelBrushTwo)
-
-        self.buttonSelBrushThree = QPushButton('Brush03')
-        self.buttonSelBrushThree.clicked.connect(lambda: self.setBrush(3))
-        brushLayout.addWidget(self.buttonSelBrushThree)
-
-        self.buttonSelBrushFour = QPushButton('Brush04')
-        self.buttonSelBrushFour.clicked.connect(lambda: self.setBrush(4))
-        brushLayout.addWidget(self.buttonSelBrushFour)
-
-        self.buttonSelBrushFive = QPushButton('Brush05')
-        self.buttonSelBrushFive.clicked.connect(lambda: self.setBrush(5))
-        brushLayout.addWidget(self.buttonSelBrushFive)
-
-        self.buttonSelBrushSix = QPushButton('Brush06')
-        self.buttonSelBrushSix.clicked.connect(lambda: self.setBrush(6))
-        brushLayout.addWidget(self.buttonSelBrushSix)
-
-        self.buttonSelBrushSeven = QPushButton('Brush07')
-        self.buttonSelBrushSeven.clicked.connect(lambda: self.setBrush(7))
-        brushLayout.addWidget(self.buttonSelBrushSeven)
-
-        self.buttonSelBrushEight = QPushButton('Brush08')
-        self.buttonSelBrushEight.clicked.connect(lambda: self.setBrush(8))
-        brushLayout.addWidget(self.buttonSelBrushEight)
-
-        self.buttonSelBrushNine = QPushButton('Brush09')
-        self.buttonSelBrushNine.clicked.connect(lambda: self.setBrush(9))
-        brushLayout.addWidget(self.buttonSelBrushNine)
-
-        self.buttonSelBrushTen = QPushButton('Brush10')
-        self.buttonSelBrushTen.clicked.connect(lambda: self.setBrush(10))
-        brushLayout.addWidget(self.buttonSelBrushTen)
+        mainLayout = QVBoxLayout()
+        mainLayout.addItem(inputLayout)
+        mainLayout.addWidget(buttonValidate)
+        mainLayout.addWidget(buttonCancel)
+        self.setLayout(mainLayout)
         
-        self.brushGB = QGroupBox("BRUSH")
-        self.brushGB.setLayout(brushLayout)
+    def sendResolution(self):
+        self.parentWindow.setResolution((
+            (self.inputMinX.value(),self.inputMaxX.value()),
+            (self.inputMinY.value(),self.inputMaxY.value()),
+            (self.inputMinZ.value(),self.inputMaxZ.value())))
+        self.hide()
+
+class myMainWindow(QMainWindow):
+    def __init__(self):
+        super(myMainWindow, self).__init__()
+        
+        self.name = 'New_project'
+        
+        self.drawings = {}
+        self.drawings['Topology'] = drawWidget()
+        self.drawings['Uplift'] = drawWidget()
+        self.drawings['Precipitation'] = drawWidget()
         
         
-        brushAndDrawingLayout = QHBoxLayout()
-        brushAndDrawingLayout.addWidget(self.brushGB)
-        brushAndDrawingLayout.setAlignment(self.brushGB, Qt.AlignTop)
-        brushAndDrawingLayout.addWidget(self.drawingTab)
-        self.brushAndDrawing = QWidget()
-        self.brushAndDrawing.setLayout(brushAndDrawingLayout)
-        # /DEFINE BRUSH
+        
+        self.tab = QTabWidget()
+        self.tab.setSizePolicy(
+            QSizePolicy.MinimumExpanding,
+            QSizePolicy.MinimumExpanding
+            )
+        # self.tab.palette = self.tab.palette()
+        # self.tab.palette.setColor(self.backgroundRole(), Qt.gray)
+        # self.tab.setPalette(self.tab.palette)
+        
+        
+        for key in self.drawings:
+            self.tab.addTab(self.drawings[key], key)
+        
+        scrollArea = QScrollArea()
+        scrollArea.setWidget(self.tab)
 
-    def doPrint(self):
-        print('clic')
         
-    def setBrush(self, brush):
-        print("Brush selected : " + str(brush))
+
+        myCentralLayout = QVBoxLayout()
+        #myCentralLayout.setSizeConstraint(QLayout.SetFixedSize)
+        myCentralLayout.addWidget(scrollArea)
         
-    def updateBackground(self, event):
-        if event == 1:
-            self.drawingZoneUplift.palette.setBrush(QPalette.Background, QBrush(QPixmap(self.drawingZoneTopol.image)))
-            self.drawingZoneUplift.setPalette(self.drawingZoneUplift.palette)
-        elif event == 2:
-            self.drawingZonePrecip.palette.setBrush(QPalette.Background, QBrush(QPixmap(self.drawingZoneTopol.image)))
-            self.drawingZonePrecip.setPalette(self.drawingZonePrecip.palette)
+        myCentralWidget = QWidget(self)
+        myCentralWidget.setLayout(myCentralLayout)
+        
+        self.setCentralWidget(myCentralWidget)
+        
+        
+        self.setSize(QSize(200,200))
+        self.buildMenu()
+        
+    def buildMenu(self):
+        file = QMenu("&File", self)
+        file.addAction(QAction("&Open a project", self, shortcut="Ctrl+O",
+            triggered=self.openProject))
+        file.addAction(QAction("&Save the project", self, shortcut="Ctrl+S",
+            triggered=self.save))
+        file.addAction(QAction("&New project", self, shortcut="Ctrl+N", 
+            triggered=self.newProject))
+        file.addAction(QAction("&Quit", self, shortcut="Ctrl+Q",
+            triggered=self.quit))
+        self.menuBar().addMenu(file)
+        
+        settings = QMenu("S&ettings", self)
+        settings.addAction(QAction("Project na&me", self, shortcut="Ctrl+M",
+            triggered=self.setName))
+        settings.addAction(QAction("Edit S&ize", self, shortcut="Ctrl+i",
+            triggered=self.showSizeWindow))
+        settings.addAction(QAction("Edit &Resolution", self, shortcut="Ctrl+R",
+            triggered=self.showResolutionWindow))
+        self.menuBar().addMenu(settings)
+        
+    def openProject(self):
+        pass
+        
+    def save(self):
+        fileName, extention =  QFileDialog.getSaveFileName(self, "Save As", 
+                    QDir.currentPath() + '/' + self.name,
+                    "%s Files (*.%s);;All Files (*)" % ('PNG', 'png'))
+                    
+        if fileName:
+            for key in self.drawings:
+                self.drawings[key].save(
+                    fileName.replace('.png', '_' + key + '.png'),
+                    'png'
+                )
+            return True
+            
+        return False
+            
+        
+    def newProject(self):
+        pass
+        
+    def showResolutionWindow(self):
+        try:
+            self.resolutionPopup
+        except AttributeError:
+            self.resolutionPopup = resolutionWindow()
+            self.resolutionPopup.parentWindow = self
+            
+        self.resolutionPopup.show()  
+        
+    def showSizeWindow(self):
+        try:
+            self.sizePopup
+        except AttributeError:
+            self.sizePopup = sizeWindow()
+            self.sizePopup.parentWindow = self
+            
+        self.sizePopup.show()
+        
+    def setSize(self, size):
+        for key in self.drawings:
+            self.drawings[key].resizeDrawing(size)
+            
+        
+        self.tab.resize(size)
+         # Add margin to avoid scrolling bar
+        self.resize(size.width() + 20,size.height() + 41)
+        
+    def setResolution(self, resolution):
+        for drawingKey in self.drawings:
+            self.drawings[drawingKey].resizeDrawing(QSize(resolution['x'],
+                resolution['y']))
+        
+    def quit(self):
+        pass
+        
+    def setName(self):
+        newName, okPressed = QInputDialog.getText(self,
+            "Project name", "Choose a new project name:", QLineEdit.Normal,
+            self.name)
+        if okPressed == True and not newName == '' and not newName == self.name:
+            self.name = newName
+            self.updateWindowTitle()
+        else:
+            print('setName : nothing to do')
+
+    def updateWindowTitle(self):
+        self.setWindowTitle(self.name)
+        
+    def needSave(self):
+        needSave = False
+        for key in drawings:
+            if drawings[key].changed():
+                needSave = True
+                break
         
 if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    geoPainterWindow = MainWindow()
-    geoPainterWindow.show()
-    sys.exit(app.exec_())
-    
+    application = QApplication(sys.argv)
+    geoPainter = myMainWindow()
+    geoPainter.show()
+    sys.exit(application.exec_())
