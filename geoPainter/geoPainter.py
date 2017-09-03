@@ -255,20 +255,68 @@ class brushWindow(QWidget):
         mainLayout = QVBoxLayout()
         
         brushList = []
-        brushList.append({'picture': 'temp', 'brush': None, 'name': 'Brush 01'})
-        brushList.append({'picture': 'temp', 'brush': None, 'name': 'Brush 02'})
-        brushList.append({'picture': 'temp', 'brush': None, 'name': 'Brush 03'})
-        brushList.append({'picture': 'temp', 'brush': None, 'name': 'Brush 04'})
+        brushList.append({
+            'brush': [
+                {'position': 0,  'color': QColor(0, 0, 0, 10)},
+                {'position': 0.2,'color': QColor(0, 0, 0, 5)},
+                {'position': 0.6,'color': QColor(1, 1, 1, 0)}],
+            'name': 'Brush 01',
+            'label': None})
+        brushList.append({
+            'brush': [
+                {'position': 0,  'color': QColor(0, 0, 0, 10)},
+                {'position': 0.2,'color': QColor(0, 0, 0, 5)},
+                {'position': 0.6,'color': QColor(1, 1, 1, 0)}],
+            'name': 'Brush 02',
+            'label': None})
+        # brushList.append({
+            # 'brush': [
+                # {'position': 0,  'color': QColor(0, 0, 0, 10)},
+                # {'position': 0.2,'color': QColor(0, 0, 0, 5)},
+                # {'position': 0.6,'color': QColor(1, 1, 1, 0)}],
+            # 'name': 'Brush 03',
+            #'label': None})
+        # brushList.append({
+            # 'brush': [
+                # {'position': 0,  'color': QColor(0, 0, 0, 10)},
+                # {'position': 0.2,'color': QColor(0, 0, 0, 5)},
+                # {'position': 0.6,'color': QColor(1, 1, 1, 0)}],
+            # 'name': 'Brush 03',
+            #'label': None})
         
         topLayout = QVBoxLayout()
+        
         id = 0
         for item in brushList:
             newLayout = QHBoxLayout()
+            print('0')
             buttonName = QPushButton(item['name'])
-            buttonName.clicked.connect(lambda state, lambdaId=id: self.selectBrush(lambdaId))
             buttonEdit = QPushButton('edit')
-            buttonEdit.clicked.connect(lambda state, lambdaId=id: self.editBrush(lambdaId))
-            newLayout.addWidget(QLabel(item['picture']))
+            
+            buttonName.clicked.connect(lambda state,
+                lambdaId=id: self.selectBrush(lambdaId))
+            buttonEdit.clicked.connect(lambda state,
+                lambdaId=id: self.editBrush(lambdaId))
+            print('1')
+            previewImage = QImage(QSize(70,70), QImage.Format_RGB32)
+            previewImage.fill(QColor(255, 255, 255))
+            print('2')
+            painter = QPainter(previewImage)
+            print('3')
+            painter.setPen(QPen(QBrush(QRadialGradient(QPoint(35,35), 60)),60,Qt.SolidLine,Qt.RoundCap,Qt.RoundJoin))
+            print('4')
+            painter.drawPoint(QPoint(35,35))
+            self.update()
+
+            preview = QPixmap(QSize(70,70))
+            preview.fromImage(previewImage)
+            painter = None # Delete the painter so we can reuse the variable
+            
+            label = QLabel()
+            label.setPixmap(preview)
+            brushList[id]['label'] = label
+
+            newLayout.addWidget(item['label'])
             newLayout.addWidget(buttonName)
             newLayout.addWidget(buttonEdit)
             
