@@ -78,8 +78,6 @@ class drawWidget(QWidget):
             .normalized().adjusted(-radius, -radius, +radius, +radius))
     
     def resizeDrawing(self, size):
-        print('resizeDrawing')
-        print('New size : ', size.width(),size.height())
         if not size == self.drawing.size():
             newDrawing = QImage(size, QImage.Format_RGB32)
             newDrawing.fill(qRgb(255,255,255))
@@ -93,36 +91,63 @@ class drawWidget(QWidget):
             
             self.drawing = newDrawing
             self.setFixedSize(self.drawing.size())
-        else:
-            print('resizeDrawing : nothing to do')
             
     def changed(self):
-        if self.changedSinceLastSave:
-            return True
-            
+        return self.changedSinceLastSave
+        
+    def size(self):
+        return self.drawing.size()
             
     def save(self, fileName, extention):
         if self.drawing.save(fileName, extention):
             self.changedSinceLastSave = False
             return True
-            
         return False
+        
+    def open(self, fileName):
+        openedDrawing = QImage()
+        if not openedDrawing.load(fileName):
+            print('fail to load image : ', fileName)
+            return False
+            
+        newSize = openedDrawing.size()
+        
+        newDrawing = QImage(newSize,QImage.Format_RGB32)
+        newDrawing.fill(qRgb(255, 255, 255))
+        
+        painter = QPainter(newDrawing)
+        painter.drawImage(QPoint(0,0), openedDrawing)
+        
+        self.drawing = newDrawing
+        
+        self.setFixedSize(newSize)
+        self.changedSinceLastSave = False
+        self.update()
+        return True
+        
+    def create(self, size):
+        newDrawing = QImage(size,QImage.Format_RGB32)
+        newDrawing.fill(qRgb(255, 255, 255))
+        self.drawing = newDrawing
+        self.setFixedSize(size)
+        self.changedSinceLastSave = False
+        self.update()
     
 class sizeWindow(QWidget):
-    def __init__(self):
+    def __init__(self, parentWindow):
         QWidget.__init__(self)
         self.setAttribute(Qt.WA_StaticContents)
         self.setWindowFlags(Qt.SubWindow)
         self.parentWindowRef = None # Allow self to be owned by PyQt instead of Qt
         
-        self.parentWindow = None # Used to send back values
+        self.parentWindow = parentWindow # Used to send back values
         
         inputLayout = QGridLayout()
         
         
         self.inputSizeX = QSpinBox()
         self.inputSizeX.setRange(200,5000)
-        inputLayout.addWidget(QLabel('Size X : '),0,0) 
+        inputLayout.addWidget(QLabel('Size X : '),0,0)
         inputLayout.addWidget(self.inputSizeX,    0,1)
         
         self.inputSizeY = QSpinBox()
@@ -150,14 +175,11 @@ class sizeWindow(QWidget):
         self.hide()
         
 class resolutionWindow(QWidget):
-    def __init__(self):
+    def __init__(self, parentWindow):
         QWidget.__init__(self)
         self.setAttribute(Qt.WA_StaticContents)
         self.setWindowFlags(Qt.SubWindow)
         self.parentWindowRef = None # Allow self to be owned by PyQt instead of Qt
-        
-        self.parentWindow = None # Used to send back values
-        
         
         inputLayout = QGridLayout()
         
@@ -215,22 +237,20 @@ class myMainWindow(QMainWindow):
         super(myMainWindow, self).__init__()
         
         self.name = 'New_project'
+        self.defaultSize = QSize(200,200)
         
         self.drawings = {}
         self.drawings['Topology'] = drawWidget()
         self.drawings['Uplift'] = drawWidget()
         self.drawings['Precipitation'] = drawWidget()
-        
-        
-        
+
         self.tab = QTabWidget()
-        self.tab.setSizePolicy(
-            QSizePolicy.MinimumExpanding,
-            QSizePolicy.MinimumExpanding
-            )
-        # self.tab.palette = self.tab.palette()
-        # self.tab.palette.setColor(self.backgroundRole(), Qt.gray)
-        # self.tab.setPalette(self.tab.palette)
+        # self.tab.setSizePolicy( #Useless ?
+            # QSizePolicy.MinimumExpanding,
+            # QSizePolicy.MinimumExpanding)
+        #self.tab.palette = self.tab.palette()
+        #self.tab.palette.setColor(self.backgroundRole(), Qt.gray)
+        #self.tab.setPalette(self.tab.palette)
         
         
         for key in self.drawings:
@@ -239,10 +259,7 @@ class myMainWindow(QMainWindow):
         scrollArea = QScrollArea()
         scrollArea.setWidget(self.tab)
 
-        
-
         myCentralLayout = QVBoxLayout()
-        #myCentralLayout.setSizeConstraint(QLayout.SetFixedSize)
         myCentralLayout.addWidget(scrollArea)
         
         myCentralWidget = QWidget(self)
@@ -250,20 +267,20 @@ class myMainWindow(QMainWindow):
         
         self.setCentralWidget(myCentralWidget)
         
+        self.setSize(self.defaultSize)
         
-        self.setSize(QSize(200,200))
         self.buildMenu()
         
     def buildMenu(self):
         file = QMenu("&File", self)
         file.addAction(QAction("&Open a project", self, shortcut="Ctrl+O",
-            triggered=self.openProject))
+            triggered=self.open))
         file.addAction(QAction("&Save the project", self, shortcut="Ctrl+S",
             triggered=self.save))
         file.addAction(QAction("&New project", self, shortcut="Ctrl+N", 
-            triggered=self.newProject))
+            triggered=self.create))
         file.addAction(QAction("&Quit", self, shortcut="Ctrl+Q",
-            triggered=self.quit))
+            triggered=self.close))
         self.menuBar().addMenu(file)
         
         settings = QMenu("S&ettings", self)
@@ -275,8 +292,24 @@ class myMainWindow(QMainWindow):
             triggered=self.showResolutionWindow))
         self.menuBar().addMenu(settings)
         
-    def openProject(self):
-        pass
+    def open(self):
+        self.needSave()
+        fileName, extention =  QFileDialog.getOpenFileName(self, "Open project", 
+            QDir.currentPath())
+        if fileName:
+            baseName = fileName
+            for key in self.drawings:
+                baseName = baseName.replace('_' + key + '.png', '')
+                print(baseName)
+                
+            for key in self.drawings:   
+                self.drawings[key].open(baseName + '_' + key + '.png')
+                
+            size = self.drawings[next(iter(self.drawings))].size()
+            self.tab.resize(size)
+            #Add margin to avoid scrolling bar
+            self.resize(size.width() + 20,size.height() + 41)
+        
         
     def save(self):
         fileName, extention =  QFileDialog.getSaveFileName(self, "Save As", 
@@ -286,42 +319,40 @@ class myMainWindow(QMainWindow):
         if fileName:
             for key in self.drawings:
                 self.drawings[key].save(
-                    fileName.replace('.png', '_' + key + '.png'),
-                    'png'
-                )
+                    fileName.replace('.png', '_' + key + '.png'),'png')
             return True
-            
         return False
-            
         
-    def newProject(self):
-        pass
+    def create(self):
+        for key in self.drawings:
+            self.drawings[key].create(self.defaultSize)
+            
+        self.tab.resize(self.defaultSize)
+        # Add margin to avoid scrolling bar
+        self.resize(self.defaultSize.width(),self.defaultSize.height() + 41)
         
     def showResolutionWindow(self):
         try:
             self.resolutionPopup
         except AttributeError:
-            self.resolutionPopup = resolutionWindow()
-            self.resolutionPopup.parentWindow = self
-            
+            self.resolutionPopup = resolutionWindow(self)
+
         self.resolutionPopup.show()  
         
     def showSizeWindow(self):
         try:
             self.sizePopup
         except AttributeError:
-            self.sizePopup = sizeWindow()
-            self.sizePopup.parentWindow = self
-            
+            self.sizePopup = sizeWindow(self)
+
         self.sizePopup.show()
         
     def setSize(self, size):
         for key in self.drawings:
             self.drawings[key].resizeDrawing(size)
-            
-        
+
         self.tab.resize(size)
-         # Add margin to avoid scrolling bar
+        # Add margin to avoid scrolling bar
         self.resize(size.width() + 20,size.height() + 41)
         
     def setResolution(self, resolution):
@@ -329,28 +360,29 @@ class myMainWindow(QMainWindow):
             self.drawings[drawingKey].resizeDrawing(QSize(resolution['x'],
                 resolution['y']))
         
-    def quit(self):
-        pass
-        
+    def closeEvent(self, event):
+        self.needSave()
+        event.accept()
+
     def setName(self):
-        newName, okPressed = QInputDialog.getText(self,
-            "Project name", "Choose a new project name:", QLineEdit.Normal,
+        newName, okPressed = QInputDialog.getText(
+            self,
+            "Project name",
+            "Choose a new project name:",
+            QLineEdit.Normal,
             self.name)
         if okPressed == True and not newName == '' and not newName == self.name:
             self.name = newName
             self.updateWindowTitle()
-        else:
-            print('setName : nothing to do')
 
     def updateWindowTitle(self):
         self.setWindowTitle(self.name)
         
     def needSave(self):
-        needSave = False
-        for key in drawings:
-            if drawings[key].changed():
-                needSave = True
-                break
+        for key in self.drawings:
+            if self.drawings[key].changed():
+                return self.save()
+            return False
         
 if __name__ == '__main__':
     application = QApplication(sys.argv)
