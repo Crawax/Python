@@ -94,8 +94,8 @@ class drawWidget(QWidget):
             
             painter.drawImage(QPoint(
                 size.width() / 2 - self.drawing.width() / 2,
-                size.height() / 2 - self.drawing.height() / 2
-            ), self.drawing)
+                size.height() / 2 - self.drawing.height() / 2),
+                self.drawing)
             
             self.drawing = newDrawing
             self.setFixedSize(self.drawing.size())
@@ -240,6 +240,55 @@ class resolutionWindow(QWidget):
             (self.inputMinZ.value(),self.inputMaxZ.value())))
         self.hide()
 
+class brushWindow(QWidget):
+    def __init__(self, parentWindow):
+        QWidget.__init__(self)
+        super(brushWindow, self).__init__(parentWindow)
+        self.parentWindowRef = None # Allow self to be owned by PyQt instead of Qt
+        self.setAttribute(Qt.WA_StaticContents)
+        self.setWindowFlags(Qt.Tool)
+        #self.setWindowFlags(Qt.WindowStaysOnTopHint)
+        
+        
+        self.parentWindow = parentWindow
+        
+        mainLayout = QVBoxLayout()
+        
+        brushList = []
+        brushList.append({'picture': 'temp', 'brush': None, 'name': 'Brush 01'})
+        brushList.append({'picture': 'temp', 'brush': None, 'name': 'Brush 02'})
+        brushList.append({'picture': 'temp', 'brush': None, 'name': 'Brush 03'})
+        brushList.append({'picture': 'temp', 'brush': None, 'name': 'Brush 04'})
+        
+        topLayout = QVBoxLayout()
+        id = 0
+        for item in brushList:
+            newLayout = QHBoxLayout()
+            buttonName = QPushButton(item['name'])
+            buttonName.clicked.connect(lambda state, lambdaId=id: self.selectBrush(lambdaId))
+            buttonEdit = QPushButton('edit')
+            buttonEdit.clicked.connect(lambda state, lambdaId=id: self.editBrush(lambdaId))
+            newLayout.addWidget(QLabel(item['picture']))
+            newLayout.addWidget(buttonName)
+            newLayout.addWidget(buttonEdit)
+            
+            
+            topLayout.addLayout(newLayout)
+            id = id + 1
+        
+        bottomLayout = QVBoxLayout()
+        
+        mainLayout.addLayout(topLayout)
+        mainLayout.addLayout(bottomLayout)
+        
+        self.setLayout(mainLayout)
+        
+    def selectBrush(self, id):
+        print('selectBrush: ' + str(id))
+        
+    def editBrush(self, id):
+        print('editBrush: ' + str(id))
+        
 class myMainWindow(QMainWindow):
     def __init__(self):
         super(myMainWindow, self).__init__()
@@ -252,14 +301,7 @@ class myMainWindow(QMainWindow):
         self.drawings['Uplift'] = drawWidget()
         self.drawings['Precipitation'] = drawWidget()
 
-        self.tab = QTabWidget()
-        # self.tab.setSizePolicy( #Useless ?
-            # QSizePolicy.MinimumExpanding,
-            # QSizePolicy.MinimumExpanding)
-        #self.tab.palette = self.tab.palette()
-        #self.tab.palette.setColor(self.backgroundRole(), Qt.gray)
-        #self.tab.setPalette(self.tab.palette)
-        
+        self.tab = QTabWidget()        
         
         for key in self.drawings:
             self.tab.addTab(self.drawings[key], key)
@@ -290,6 +332,11 @@ class myMainWindow(QMainWindow):
         file.addAction(QAction("&Quit", self, shortcut="Ctrl+Q",
             triggered=self.close))
         self.menuBar().addMenu(file)
+        
+        brush = QMenu("&Brush", self)
+        brush.addAction(QAction("Br&ush Window",self,shortcut="Crtl+U",
+            triggered=self.showBrushWindow))
+        self.menuBar().addMenu(brush)
         
         settings = QMenu("S&ettings", self)
         settings.addAction(QAction("Project na&me", self, shortcut="Ctrl+M",
@@ -354,6 +401,14 @@ class myMainWindow(QMainWindow):
             self.sizePopup = sizeWindow(self)
 
         self.sizePopup.show()
+        
+    def showBrushWindow(self):
+        try:
+            self.brushPopup
+        except AttributeError:
+            self.brushPopup = brushWindow(self)
+            
+        self.brushPopup.show()
         
     def setSize(self, size):
         for key in self.drawings:
