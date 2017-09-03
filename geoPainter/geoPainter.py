@@ -23,7 +23,11 @@ class drawWidget(QWidget):
         
         self.penWidth = 25
         self.penWidthRad = self.penWidth / 2 + 2
-        self.penColor = QColor(0, 0, 0, 30)
+        self.gradientColor = (
+            {'position': 0,   'color': QColor(0, 0, 0, 10)},
+            {'position': 0.2, 'color': QColor(0, 0, 0, 5)},
+            {'position': 0.6, 'color': QColor.fromRgbF(1, 1, 1, 0)})
+        self.penColor = QColor(0, 0, 0, 10)
 
     
     # Qt Buildin Event
@@ -38,7 +42,7 @@ class drawWidget(QWidget):
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
             self.LeftMouseButtonDown = True
-            self.lastPoint = self.currentPoint
+            self.lastPoint = event.pos()
             self.currentPoint = event.pos()
             self.drawLine()
     
@@ -54,23 +58,27 @@ class drawWidget(QWidget):
     # /Qt Event
     
     
-    def buildPen(self, point):
-        gradient = QRadialGradient(point.x(), point.y(), self.penWidth)
-        gradient.setColorAt(0, self.penColor);
-        gradient.setColorAt(0.5, QColor.fromRgbF(1, 1, 1, 0));
+    def buildPen(self):
+        gradient = QRadialGradient(self.currentPoint, self.penWidth)
+
+        for color in self.gradientColor:
+            gradient.setColorAt(color['position'],color['color'])
+        
         return QPen(QBrush(gradient),
                     self.penWidth,
                     Qt.SolidLine,
                     Qt.RoundCap,
-                    Qt.RoundJoin
-                    )
+                    Qt.RoundJoin)
     
     def drawLine(self):
         painter = QPainter(self.drawing)
-        painter.setPen(self.buildPen(self.currentPoint))
+        painter.setPen(self.buildPen())
         
-        
-        painter.drawLine(self.lastPoint, self.currentPoint)
+        if self.lastPoint == self.currentPoint:
+            painter.drawPoint(self.currentPoint)
+        else:
+            painter.drawLine(self.lastPoint, self.currentPoint)
+            
         self.changedSinceLastSave = True
         
         radius = self.penWidth / 2 + 2
@@ -237,7 +245,7 @@ class myMainWindow(QMainWindow):
         super(myMainWindow, self).__init__()
         
         self.name = 'New_project'
-        self.defaultSize = QSize(200,200)
+        self.defaultSize = QSize(500,500)
         
         self.drawings = {}
         self.drawings['Topology'] = drawWidget()
