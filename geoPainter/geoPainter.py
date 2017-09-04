@@ -100,6 +100,9 @@ class drawWidget(QWidget):
             self.drawing = newDrawing
             self.setFixedSize(self.drawing.size())
             
+    def setBrush(self, brush):
+        self.gradientColor = brush
+            
     def changed(self):
         return self.changedSinceLastSave
         
@@ -149,19 +152,9 @@ class sizeWindow(QWidget):
         self.parentWindowRef = None # Allow self to be owned by PyQt instead of Qt
         
         self.parentWindow = parentWindow # Used to send back values
-        
-        inputLayout = QGridLayout()
-        
-        
-        self.inputSizeX = QSpinBox()
-        self.inputSizeX.setRange(200,5000)
-        inputLayout.addWidget(QLabel('Size X : '),0,0)
-        inputLayout.addWidget(self.inputSizeX,    0,1)
-        
-        self.inputSizeY = QSpinBox()
-        self.inputSizeY.setRange(200,5000)
-        inputLayout.addWidget(QLabel(' Size Y : '),0,2)
-        inputLayout.addWidget(self.inputSizeY,     0,3)
+
+        self.inputSizeX = self.buildSpinBox()
+        self.inputSizeY = self.buildSpinBox()
         
         buttonValidate = QPushButton('Confirm')
         buttonValidate.clicked.connect(self.sendSize)
@@ -169,11 +162,25 @@ class sizeWindow(QWidget):
         buttonCancel = QPushButton('Cancel')
         buttonCancel.clicked.connect(self.hide)
         
+        inputLayout = QGridLayout()
+        
+        inputLayout.addWidget(QLabel('Size X : '),0,0)
+        inputLayout.addWidget(self.inputSizeX,    0,1)
+        
+        inputLayout.addWidget(QLabel(' Size Y : '),0,2)
+        inputLayout.addWidget(self.inputSizeY,     0,3)
+        
         mainLayout = QVBoxLayout()
         mainLayout.addItem(inputLayout)
         mainLayout.addWidget(buttonValidate)
         mainLayout.addWidget(buttonCancel)
+        
         self.setLayout(mainLayout)
+        
+    def buildSpinBox(self):
+        spinBox = QSpinBox()
+        spinBox.setRange(200,9999)
+        return spinBox
         
     def sendSize(self):
         self.parentWindow.setSize(QSize(
@@ -188,50 +195,46 @@ class resolutionWindow(QWidget):
         self.setAttribute(Qt.WA_StaticContents)
         self.setWindowFlags(Qt.SubWindow)
         self.parentWindowRef = None # Allow self to be owned by PyQt instead of Qt
-        
-        inputLayout = QGridLayout()
-        
-        self.inputMinX = QSpinBox()
-        self.inputMinX.setRange(0,255)
-        inputLayout.addWidget(QLabel('Min X : '),0,0)
-        inputLayout.addWidget(self.inputMinX,    0,1)
-        
-        self.inputMaxX = QSpinBox()
-        self.inputMaxX.setRange(0,255)
-        inputLayout.addWidget(QLabel(' Max X : '),0,2)
-        inputLayout.addWidget(self.inputMaxX,     0,3)
-        
-        self.inputMinY = QSpinBox()
-        self.inputMinY.setRange(0,255)
-        inputLayout.addWidget(QLabel('Min Y : '),1,0)
-        inputLayout.addWidget(self.inputMinY,    1,1)
-        
-        self.inputMaxY = QSpinBox()
-        self.inputMaxY.setRange(0,255)
-        inputLayout.addWidget(QLabel(' Max Y : '),1,2)
-        inputLayout.addWidget(self.inputMaxY,     1,3)
-        
-        self.inputMinZ = QSpinBox()
-        self.inputMinZ.setRange(0,255)
-        inputLayout.addWidget(QLabel('Min Z : '),2,0)
-        inputLayout.addWidget(self.inputMinZ,    2,1)
-        
-        self.inputMaxZ = QSpinBox()
-        self.inputMaxZ.setRange(0,255)
-        inputLayout.addWidget(QLabel(' Max Z : '),2,2)
-        inputLayout.addWidget(self.inputMaxZ,     2,3)
+
+        self.inputMinX = self.buildSpinBox()
+        self.inputMaxX = self.buildSpinBox()
+        self.inputMinY = self.buildSpinBox()
+        self.inputMaxY = self.buildSpinBox()
+        self.inputMinZ = self.buildSpinBox()
+        self.inputMaxZ = self.buildSpinBox()
         
         buttonValidate = QPushButton('Confirm')
         buttonValidate.clicked.connect(self.sendResolution)
-        
         buttonCancel = QPushButton('Cancel')
         buttonCancel.clicked.connect(self.hide)
         
+        inputLayout = QGridLayout()
+        
+        inputLayout.addWidget(QLabel('Min X : '), 0,0)
+        inputLayout.addWidget(self.inputMinX,     0,1)
+        inputLayout.addWidget(QLabel(' Max X : '),0,2)
+        inputLayout.addWidget(self.inputMaxX,     0,3)
+
+        inputLayout.addWidget(QLabel('Min Y : '), 1,0)
+        inputLayout.addWidget(self.inputMinY,     1,1)
+        inputLayout.addWidget(QLabel(' Max Y : '),1,2)
+        inputLayout.addWidget(self.inputMaxY,     1,3)
+
+        inputLayout.addWidget(QLabel('Min Z : '), 2,0)
+        inputLayout.addWidget(self.inputMinZ,     2,1)
+        inputLayout.addWidget(QLabel(' Max Z : '),2,2)
+        inputLayout.addWidget(self.inputMaxZ,     2,3)
+
         mainLayout = QVBoxLayout()
         mainLayout.addItem(inputLayout)
         mainLayout.addWidget(buttonValidate)
         mainLayout.addWidget(buttonCancel)
         self.setLayout(mainLayout)
+        
+    def buildSpinBox(self):
+        spinBox = QSpinBox()
+        spinBox.setRange(0,255)
+        return spinBox
         
     def sendResolution(self):
         self.parentWindow.setResolution((
@@ -254,72 +257,72 @@ class brushWindow(QWidget):
         
         mainLayout = QVBoxLayout()
         
-        brushList = []
-        brushList.append({
+        self.brushList = []
+        self.brushList.append({
             'brush': [
                 {'position': 0,  'color': QColor(0, 0, 0, 10)},
-                {'position': 0.2,'color': QColor(0, 0, 0, 5)},
+                {'position': 0.2,'color': QColor(100, 100, 0, 5)},
                 {'position': 0.6,'color': QColor(1, 1, 1, 0)}],
             'name': 'Brush 01',
             'label': None})
-        brushList.append({
+        self.brushList.append({
+            'brush': [
+                {'position': 0,  'color': QColor(0, 0, 0, 100)},
+                {'position': 0.2,'color': QColor(0, 0, 0, 50)},
+                {'position': 0.6,'color': QColor(1, 1, 1, 0)}],
+            'name': 'Brush 02',
+            'label': None})
+        self.brushList.append({
             'brush': [
                 {'position': 0,  'color': QColor(0, 0, 0, 10)},
                 {'position': 0.2,'color': QColor(0, 0, 0, 5)},
                 {'position': 0.6,'color': QColor(1, 1, 1, 0)}],
-            'name': 'Brush 02',
+            'name': 'Brush 03',
             'label': None})
-        # brushList.append({
-            # 'brush': [
-                # {'position': 0,  'color': QColor(0, 0, 0, 10)},
-                # {'position': 0.2,'color': QColor(0, 0, 0, 5)},
-                # {'position': 0.6,'color': QColor(1, 1, 1, 0)}],
-            # 'name': 'Brush 03',
-            #'label': None})
-        # brushList.append({
-            # 'brush': [
-                # {'position': 0,  'color': QColor(0, 0, 0, 10)},
-                # {'position': 0.2,'color': QColor(0, 0, 0, 5)},
-                # {'position': 0.6,'color': QColor(1, 1, 1, 0)}],
-            # 'name': 'Brush 03',
-            #'label': None})
+        self.brushList.append({
+            'brush': [
+                {'position': 0,  'color': QColor(0, 0, 0, 10)},
+                {'position': 0.2,'color': QColor(0, 0, 0, 5)},
+                {'position': 0.6,'color': QColor(1, 1, 1, 0)}],
+            'name': 'Brush 03',
+            'label': None})
         
         topLayout = QVBoxLayout()
         
         id = 0
-        for item in brushList:
-            newLayout = QHBoxLayout()
-            print('0')
-            buttonName = QPushButton(item['name'])
+        for item in self.brushList:
+            previewImage = QImage(QSize(50,50), QImage.Format_RGB32)
+            previewImage.fill(QColor(255, 255, 255))
+
+            gradient = QRadialGradient(QPoint(25,25), 45)
+            for brush in self.brushList[id]['brush']:
+                gradient.setColorAt(brush['position'], brush['color'])
+                
+            painter = QPainter(previewImage)
+            painter.setPen(QPen(QBrush(gradient),45,Qt.SolidLine,Qt.RoundCap,Qt.RoundJoin))
+            painter.drawPoint(QPoint(25,25))
+            painter = None # Delete the painter so we can reuse the variable
+
+            pixmap = QPixmap(previewImage)
+            icon = QIcon()
+            icon.addPixmap(pixmap)
+
+            
+            
+            buttonSelect = QPushButton()
+            buttonSelect.setFixedWidth(50)
+            buttonSelect.setFixedHeight(50)
+            buttonSelect.setIcon(icon)
             buttonEdit = QPushButton('edit')
             
-            buttonName.clicked.connect(lambda state,
+            buttonSelect.clicked.connect(lambda state,
                 lambdaId=id: self.selectBrush(lambdaId))
             buttonEdit.clicked.connect(lambda state,
                 lambdaId=id: self.editBrush(lambdaId))
-            print('1')
-            previewImage = QImage(QSize(70,70), QImage.Format_RGB32)
-            previewImage.fill(QColor(255, 255, 255))
-            print('2')
-            painter = QPainter(previewImage)
-            print('3')
-            painter.setPen(QPen(QBrush(QRadialGradient(QPoint(35,35), 60)),60,Qt.SolidLine,Qt.RoundCap,Qt.RoundJoin))
-            print('4')
-            painter.drawPoint(QPoint(35,35))
-            self.update()
-
-            preview = QPixmap(QSize(70,70))
-            preview.fromImage(previewImage)
-            painter = None # Delete the painter so we can reuse the variable
             
-            label = QLabel()
-            label.setPixmap(preview)
-            brushList[id]['label'] = label
-
-            newLayout.addWidget(item['label'])
-            newLayout.addWidget(buttonName)
+            newLayout = QHBoxLayout()
+            newLayout.addWidget(buttonSelect)
             newLayout.addWidget(buttonEdit)
-            
             
             topLayout.addLayout(newLayout)
             id = id + 1
@@ -333,6 +336,7 @@ class brushWindow(QWidget):
         
     def selectBrush(self, id):
         print('selectBrush: ' + str(id))
+        self.parentWindow.setBrush(self.brushList[id])
         
     def editBrush(self, id):
         print('editBrush: ' + str(id))
@@ -382,7 +386,7 @@ class myMainWindow(QMainWindow):
         self.menuBar().addMenu(file)
         
         brush = QMenu("&Brush", self)
-        brush.addAction(QAction("Br&ush Window",self,shortcut="Crtl+U",
+        brush.addAction(QAction("Br&ush Window",self,shortcut="Ctrl+U",
             triggered=self.showBrushWindow))
         self.menuBar().addMenu(brush)
         
@@ -474,6 +478,11 @@ class myMainWindow(QMainWindow):
     def closeEvent(self, event):
         self.needSave()
         event.accept()
+        
+    def setBrush(self, brush):
+        for drawingKey in self.drawings:
+            print(brush)
+            self.drawings[drawingKey].setBrush(brush['brush'])
 
     def setName(self):
         newName, okPressed = QInputDialog.getText(
