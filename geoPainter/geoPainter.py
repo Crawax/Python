@@ -12,7 +12,7 @@ class drawWidget(QWidget):
     def __init__(self, parent=None):
         super(drawWidget, self).__init__(parent)
         self.setAttribute(Qt.WA_StaticContents)
-        
+
         self.setLayout(QVBoxLayout())
         
         self.changedSinceLastSave = False
@@ -21,14 +21,19 @@ class drawWidget(QWidget):
         self.currentPoint = QPoint()
         self.drawing = QImage()
         
+        self.overlay = QImage(QSize(500,500), QImage.Format_ARGB32)
+        self.overlay.fill(QColor(255,255,255,0))
+        
         self.penWidth = 25
         self.penWidthRad = self.penWidth / 2 + 2
-        self.gradientColor = (
-            {'position': 0,   'color': QColor(0, 0, 0, 10)},
-            {'position': 0.2, 'color': QColor(0, 0, 0, 5)},
-            {'position': 0.6, 'color': QColor.fromRgbF(1, 1, 1, 0)})
-        self.penColor = QColor(0, 0, 0, 10)
 
+        
+        self.pen = QPen(QColor(0,0,0,50),
+                    self.penWidth,
+                    Qt.SolidLine,
+                    Qt.RoundCap,
+                    Qt.RoundJoin)
+       
     
     # Qt Buildin Event
     def resizeEvent(self, event):
@@ -37,13 +42,15 @@ class drawWidget(QWidget):
         
     def paintEvent(self, event):
         painter = QPainter(self)
+        
         painter.drawImage(event.rect(), self.drawing, event.rect())
+        painter.drawImage(event.rect(), self.overlay, event.rect())
         
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
-            self.LeftMouseButtonDown = True
             self.lastPoint = event.pos()
             self.currentPoint = event.pos()
+            self.LeftMouseButtonDown = True
             self.drawLine()
     
     def mouseMoveEvent(self, event):
@@ -54,41 +61,38 @@ class drawWidget(QWidget):
     
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.LeftButton:
+            painter = QPainter(self.drawing)
+            
+            painter.drawImage(QPoint(
+                0,
+                0),
+                self.overlay)
+            self.overlay.fill(QColor(255,255,255,0))
             self.LeftMouseButtonDown = False
     # /Qt Event
     
-    
-    def buildPen(self):
-        gradient = QRadialGradient(self.currentPoint, self.penWidth)
-
-        for color in self.gradientColor:
-            gradient.setColorAt(color['position'],color['color'])
-        
-        return QPen(QBrush(gradient),
-                    self.penWidth,
-                    Qt.SolidLine,
-                    Qt.RoundCap,
-                    Qt.RoundJoin)
-    
+   
     def drawLine(self):
-        painter = QPainter(self.drawing)
-        painter.setPen(self.buildPen())
+        #painter = QPainter(self.drawing)
+        painter = QPainter(self.overlay)
+
+        painter.setPen(self.pen)
+        painter.setCompositionMode(QPainter.CompositionMode_Source)
+        painter.drawLine(self.lastPoint, self.currentPoint)
         
-        if self.lastPoint == self.currentPoint:
-            painter.drawPoint(self.currentPoint)
-        else:
-            painter.drawLine(self.lastPoint, self.currentPoint)
-            
+
         self.changedSinceLastSave = True
         
-        radius = self.penWidth / 2 + 2
-        self.update(QRect(self.lastPoint, self.currentPoint)
-            .normalized().adjusted(-radius, -radius, +radius, +radius))
+        #radius = self.penWidth / 2 + 2
+        #self.update(QRect(self.lastPoint, self.currentPoint)
+        #    .normalized().adjusted(-radius, -radius, +radius, +radius))
+        self.update()
     
     def resizeDrawing(self, size):
         if not size == self.drawing.size():
-            newDrawing = QImage(size, QImage.Format_RGB32)
-            newDrawing.fill(qRgb(255,255,255))
+            newDrawing = QImage(size, QImage.Format_ARGB32)
+            newDrawing.fill(QColor(255,255,255,0))
+            
             
             painter = QPainter(newDrawing)
             
@@ -123,8 +127,8 @@ class drawWidget(QWidget):
             
         newSize = openedDrawing.size()
         
-        newDrawing = QImage(newSize,QImage.Format_RGB32)
-        newDrawing.fill(qRgb(255, 255, 255))
+        newDrawing = QImage(newSize,QImage.Format_ARGB32)
+        newDrawing.fill(QColor(255, 255, 255, 0))
         
         painter = QPainter(newDrawing)
         painter.drawImage(QPoint(0,0), openedDrawing)
@@ -137,8 +141,8 @@ class drawWidget(QWidget):
         return True
         
     def create(self, size):
-        newDrawing = QImage(size,QImage.Format_RGB32)
-        newDrawing.fill(qRgb(255, 255, 255))
+        newDrawing = QImage(size,QImage.Format_ARGB32)
+        newDrawing.fill(QColor(255, 255, 255, 0))
         self.drawing = newDrawing
         self.setFixedSize(size)
         self.changedSinceLastSave = False
@@ -281,10 +285,10 @@ class brushWindow(QWidget):
             'label': None})
         self.brushList.append({
             'brush': [
-                {'position': 0,  'color': QColor(0, 0, 0, 10)},
-                {'position': 0.2,'color': QColor(0, 0, 0, 5)},
-                {'position': 0.6,'color': QColor(1, 1, 1, 0)}],
-            'name': 'Brush 03',
+                {'position': 0.1, 'color': QColor(0, 0, 0, 20)},
+                {'position': 0.5, 'color': QColor(0, 0, 0, 50)},
+                {'position': 0.9, 'color': QColor(0, 0, 0, 20)}],
+            'name': 'Brush 04',
             'label': None})
         
         topLayout = QVBoxLayout()
@@ -335,7 +339,6 @@ class brushWindow(QWidget):
         self.setLayout(mainLayout)
         
     def selectBrush(self, id):
-        print('selectBrush: ' + str(id))
         self.parentWindow.setBrush(self.brushList[id])
         
     def editBrush(self, id):
@@ -349,9 +352,10 @@ class myMainWindow(QMainWindow):
         self.defaultSize = QSize(500,500)
         
         self.drawings = {}
-        self.drawings['Topology'] = drawWidget()
+        self.drawings['Topography'] = drawWidget()
         self.drawings['Uplift'] = drawWidget()
         self.drawings['Precipitation'] = drawWidget()
+        self.drawings['Erodability'] = drawWidget()
 
         self.tab = QTabWidget()        
         
@@ -388,6 +392,8 @@ class myMainWindow(QMainWindow):
         brush = QMenu("&Brush", self)
         brush.addAction(QAction("Br&ush Window",self,shortcut="Ctrl+U",
             triggered=self.showBrushWindow))
+        brush.addAction(QAction("tru&c",self,shortcut="Ctrl+C",
+            triggered=self.temp))
         self.menuBar().addMenu(brush)
         
         settings = QMenu("S&ettings", self)
@@ -416,6 +422,15 @@ class myMainWindow(QMainWindow):
             self.tab.resize(size)
             #Add margin to avoid scrolling bar
             self.resize(size.width() + 20,size.height() + 41)
+        
+        
+    def temp(self):
+        for key in self.drawings:
+            self.drawings[key].pen = QPen(QColor(0,0,0,100),
+                    25,
+                    Qt.SolidLine,
+                    Qt.RoundCap,
+                    Qt.RoundJoin)
         
         
     def save(self):
@@ -481,7 +496,6 @@ class myMainWindow(QMainWindow):
         
     def setBrush(self, brush):
         for drawingKey in self.drawings:
-            print(brush)
             self.drawings[drawingKey].setBrush(brush['brush'])
 
     def setName(self):
