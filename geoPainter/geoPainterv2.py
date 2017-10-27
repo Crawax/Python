@@ -3,6 +3,8 @@
 
 # With the help of the Scribble.py exemple from PyQt5
 
+# Resize / Rescale : QImage.scaled()
+
 import sys
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
@@ -18,18 +20,18 @@ class drawWidget(QWidget):
         self.drawingInProgress = False
         self.drawingButton = Qt.LeftButton
         
-        self.penWidth = 25
-        self.drawingSize = QSize(500,500)
+        self.penWidth = 20
+        self.drawingSize = QSize(512,256)
         self.setFixedSize(self.drawingSize)
         self.drawing = QImage(self.drawingSize, QImage.Format_ARGB32)
-        self.drawing.fill(QColor(255, 255, 255, 255))
+        self.drawing.fill(Qt.white)
         
         self.initLayer(10)
         
         self.gradientColor = (
-            {'position': 0,   'color': QColor(0, 0, 0, 100)},
-            {'position': 0.2, 'color': QColor(0, 0, 0, 5)},
-            {'position': 0.6, 'color': QColor.fromRgbF(1, 1, 1, 0)})
+            {'position': 0, 'color': QColor(0, 0, 0, 50)},
+            {'position': 0.1, 'color': QColor(0, 0, 0, 50)},
+            {'position': 0.5,   'color': QColor(1, 1, 1, 0)})
         
         
     def rotateLayersForward(self):
@@ -47,10 +49,10 @@ class drawWidget(QWidget):
         for layerId in range(0, layerCount):
             self.layersId.append(layerId)
             self.layers.append(QImage(self.drawingSize, QImage.Format_ARGB32))
-            self.layers[layerId].fill(QColor(0, 0, 0, 0))
+            self.layers[layerId].fill(Qt.transparent)
 
         self.hiddenLayer = QImage(self.drawingSize, QImage.Format_RGB32)
-        self.hiddenLayer.fill(QColor(255, 255, 255))
+        self.hiddenLayer.fill(Qt.white)
 
     def resizeEvent(self, event):
         self.resize(event.size())
@@ -85,8 +87,6 @@ class drawWidget(QWidget):
         painter.drawImage(event.rect(), self.drawing, event.rect())
         for layerId in self.layersId:
             painter.drawImage(event.rect(), self.layers[layerId], event.rect())
-           
-        #painter.drawImage(event.rect(), self.hiddenLayer, event.rect())
         
     def mousePressEvent(self, event):
         if event.button() == self.drawingButton:
@@ -106,14 +106,12 @@ class drawWidget(QWidget):
         painter.drawImage(QPoint(self.drawingSize.width() / 2 - self.drawing.width() / 2,
                                  self.drawingSize.height() / 2 - self.drawing.height() / 2),
                                  self.layers[self.layersId[0]])
-        self.layers[self.layersId[0]].fill(QColor(0, 0, 0, 0))
-        self.rotateLayersForward()
+        self.layers[self.layersId[0]].fill(Qt.transparent)
+        self.rotateLayersBackward()
         
     def draw(self, currentPoint):
-        
         self.lastPoint = self.currentPoint
         self.currentPoint = currentPoint
-        self.hiddenLayer.fill(QColor(255,255,255))
         painter = QPainter(self.hiddenLayer)
         painter.setPen(QColor(0,0,0))
         painter.drawLine(self.lastPoint, self.currentPoint)
@@ -133,8 +131,7 @@ class drawWidget(QWidget):
         else:
             rect[2] = self.currentPoint.y()
             rect[3] = self.lastPoint.y()
-            
-        print(rect)
+
         
         pointList = []
         
@@ -144,16 +141,16 @@ class drawWidget(QWidget):
         elif rect[2] == rect[3]:
             for x in range(rect[0], rect[1]):
                 pointList.append(QPoint(x,rect[2]))
-        else:            
-            for x in range(rect[0], rect[1]):
-                for y in range(rect[2], rect[3]):
+        else:       
+            for x in range(rect[0] - 1, rect[1] + 1):
+                for y in range(rect[2] - 1, rect[3] + 1):
                     if self.hiddenLayer.pixel(x,y) == 4278190080:
                         pointList.append(QPoint(x,y))
 
-                        
-        print(pointList)
         for point in pointList:
             self.drawPoint(point)
+            
+        self.hiddenLayer.fill(Qt.white)
         
     def stopDrawing(self):
         self.drawingInProgress = False
@@ -186,10 +183,9 @@ class drawWidget(QWidget):
                     
                     
     def undo(self):
-        print(self.layersId)
-
-        self.layers[self.layersId[self.layerIdListSize - 1]].fill(QColor(0, 0, 0, 0))
+        self.layers[self.layersId[self.layerIdListSize - 1]].fill(Qt.transparent)
         self.rotateLayersForward()
+        self.update()
         
 class myPopupWindow(QWidget):
     pass
@@ -200,7 +196,7 @@ class myMainWindow(QMainWindow):
         super(myMainWindow, self).__init__()
         
         self.name = 'New_project'
-        self.size = [500,500]
+        self.size = [512,256]
         
         self.allDrawing = ('Topography', 'Uplift', 'Precipitation', 'Erodability')
         
