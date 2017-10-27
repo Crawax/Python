@@ -49,8 +49,8 @@ class drawWidget(QWidget):
             self.layers.append(QImage(self.drawingSize, QImage.Format_ARGB32))
             self.layers[layerId].fill(QColor(0, 0, 0, 0))
 
-        self.hiddenLayer = QImage(self.drawingSize, QImage.Format_ARGB32)
-        self.hiddenLayer.fill(QColor(0, 0, 0, 0))
+        self.hiddenLayer = QImage(self.drawingSize, QImage.Format_RGB32)
+        self.hiddenLayer.fill(QColor(255, 255, 255))
 
     def resizeEvent(self, event):
         self.resize(event.size())
@@ -85,6 +85,8 @@ class drawWidget(QWidget):
         painter.drawImage(event.rect(), self.drawing, event.rect())
         for layerId in self.layersId:
             painter.drawImage(event.rect(), self.layers[layerId], event.rect())
+           
+        #painter.drawImage(event.rect(), self.hiddenLayer, event.rect())
         
     def mousePressEvent(self, event):
         if event.button() == self.drawingButton:
@@ -95,7 +97,8 @@ class drawWidget(QWidget):
             self.stopDrawing()
             
     def mouseMoveEvent(self, event):
-        if self.drawingInProgress = True:
+        if self.drawingInProgress == True:
+            self.draw(event.pos())
             
             
     def mergeLastLayer(self):
@@ -106,22 +109,67 @@ class drawWidget(QWidget):
         self.layers[self.layersId[0]].fill(QColor(0, 0, 0, 0))
         self.rotateLayersForward()
         
-    def draw(self, firstPoint=False):
-        painter = QPainter(self.drawing)
-        painter.setPen(self.buildPen())
+    def draw(self, currentPoint):
+        
+        self.lastPoint = self.currentPoint
+        self.currentPoint = currentPoint
+        self.hiddenLayer.fill(QColor(255,255,255))
+        painter = QPainter(self.hiddenLayer)
+        painter.setPen(QColor(0,0,0))
+        painter.drawLine(self.lastPoint, self.currentPoint)
+        
+        rect = [0,0,0,0]
+
+        if self.lastPoint.x() < self.currentPoint.x():
+            rect[0] = self.lastPoint.x()
+            rect[1] = self.currentPoint.x()
+        else:
+            rect[0] = self.currentPoint.x()
+            rect[1] = self.lastPoint.x()
+            
+        if self.lastPoint.y() < self.currentPoint.y():
+            rect[2] = self.lastPoint.y()
+            rect[3] = self.currentPoint.y()
+        else:
+            rect[2] = self.currentPoint.y()
+            rect[3] = self.lastPoint.y()
+            
+        print(rect)
+        
+        pointList = []
+        
+        if rect[0] == rect[1]:
+            for y in range(rect[2], rect[3]):
+                pointList.append(QPoint(rect[0],y))
+        elif rect[2] == rect[3]:
+            for x in range(rect[0], rect[1]):
+                pointList.append(QPoint(x,rect[2]))
+        else:            
+            for x in range(rect[0], rect[1]):
+                for y in range(rect[2], rect[3]):
+                    if self.hiddenLayer.pixel(x,y) == 4278190080:
+                        pointList.append(QPoint(x,y))
+
+                        
+        print(pointList)
+        for point in pointList:
+            self.drawPoint(point)
         
     def stopDrawing(self):
         self.drawingInProgress = False
         self.mergeLastLayer()
         
     def startDrawing(self, position):
+        self.currentPoint = position
         self.drawingInProgress = True
         self.changeSinceLastSave = True
         
+        self.drawPoint(position)
+        
+    def drawPoint(self, position):
         painter = QPainter(self.layers[self.layersId[self.layerIdListSize]])
         painter.setPen(self.buildPen(position))
         painter.drawPoint(position)
-
         self.update()
             
     def buildPen(self, position):
